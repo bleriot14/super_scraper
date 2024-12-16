@@ -1,0 +1,24 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:9464"  # Prometheus için metriklerin yayınlandığı port
+  debug:  # Debug exporter (logging yerine)
+
+processors:
+  batch:
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]  # Logging yerine debug kullanılıyor
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

@@ -1,0 +1,99 @@
+version: "3.9"
+services:
+  selenium-hub:
+    image: selenium/hub
+    container_name: selenium-hub
+    ports:
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
+    environment:
+      - JAVA_OPTS=-Dotel.exporter.otlp.endpoint=http://otel-collector:4317
+    networks:
+      - selenium-grid
+
+  chrome-node-1:
+    image: selenium/node-chrome
+    container_name: chrome-node-1
+    shm_size: 4g
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - JAVA_OPTS=-Dotel.exporter.otlp.endpoint=http://otel-collector:4317
+    depends_on:
+      - selenium-hub
+      - otel-collector
+    networks:
+      - selenium-grid
+
+  chrome-node-2:
+    image: selenium/node-chrome
+    container_name: chrome-node-2
+    shm_size: 4g
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - JAVA_OPTS=-Dotel.exporter.otlp.endpoint=http://otel-collector:4317
+    depends_on:
+      - selenium-hub
+      - otel-collector
+    networks:
+      - selenium-grid
+
+  chrome-node-3:
+    image: selenium/node-chrome
+    container_name: chrome-node-3
+    shm_size: 4g
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - JAVA_OPTS=-Dotel.exporter.otlp.endpoint=http://otel-collector:4317
+    depends_on:
+      - selenium-hub
+      - otel-collector
+    networks:
+      - selenium-grid
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otel-collector
+    ports:
+      - "4317:4317"
+      - "55681:55681"
+      - "9464:9464"
+    volumes:
+      - ./otel-config.yaml:/etc/otel-config.yaml
+    command:
+      --config /etc/otel-config.yaml
+    networks:
+      - selenium-grid
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - selenium-grid
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    networks:
+      - selenium-grid
+
+networks:
+  selenium-grid:
+    driver: bridge
