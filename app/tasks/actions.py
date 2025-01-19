@@ -1,12 +1,10 @@
 import logging
 import time
-from selenium.common.exceptions import TimeoutException, NoSuchElementException,ElementClickInterceptedException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from app.core.driver import get_driver
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from app.tasks.one_lvl_actions.menu_scraper import scrape_menu
 
 logger = logging.getLogger("web-scraper")
 
@@ -16,11 +14,11 @@ class WebScraper:
         self.driver = get_driver()
         self.db_path = db_path
 
-    def scrape_and_save_menu(self, locator, is_loaded_locator, is_leaf, wait_time=0.5, initial_visited_categories=None, initial_located_categories=None):
+    def scrape_and_save_menu(self, worker_function,locator, is_loaded_locator, is_leaf, wait_time=0.5, initial_visited_categories=None, initial_located_categories=None):
         """
         Menü yapısını tarar ve bir dosyaya kaydeder.
         """
-        scrape_menu(self.driver, locator, is_loaded_locator, is_leaf, wait_time, initial_visited_categories, initial_located_categories)
+        worker_function(self.driver, locator, is_loaded_locator, is_leaf, wait_time, initial_visited_categories, initial_located_categories)
 
     def open_page(self, url, locator: tuple, definition: str, wait_time=3):
         """Open a URL in the browser and verify if the expected element is visible."""
