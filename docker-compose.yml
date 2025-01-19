@@ -94,6 +94,31 @@ services:
     networks:
       - selenium-grid
 
+  neo4j:
+    image: neo4j:latest
+    container_name: neo4j
+    ports:
+      - "7474:7474"   # HTTP Port
+      - "7687:7687"   # Bolt Port
+    environment:
+      - NEO4J_AUTH=neo4j/password  # Kullanıcı adı ve şifre (Güvenlik için değiştirmeyi unutmayın)
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+      - neo4j-import:/var/lib/neo4j/import
+      - neo4j-plugins:/plugins
+    depends_on:
+      - selenium-hub
+      - otel-collector
+    networks:
+      - selenium-grid
+
 networks:
   selenium-grid:
     driver: bridge
+
+volumes:
+  neo4j-data:
+  neo4j-logs:
+  neo4j-import:
+  neo4j-plugins:

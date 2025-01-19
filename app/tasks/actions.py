@@ -5,42 +5,22 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from app.core.driver import get_driver
 from selenium.webdriver.support.ui import WebDriverWait
-import sqlite3
-
-
+from selenium.webdriver.common.by import By
+from app.tasks.one_lvl_actions.menu_scraper import scrape_menu
 
 logger = logging.getLogger("web-scraper")
 
 
 class WebScraper:
-    def __init__(self,db_path='menu_data.db'):
+    def __init__(self, db_path='menu_data.db'):
         self.driver = get_driver()
-        self.visited_urls=set()
-        self.visited_urls = set()
         self.db_path = db_path
-        self._setup_database()
 
-    def _setup_database(self):
+    def scrape_and_save_menu(self, locator, is_loaded_locator, is_leaf, wait_time=0.5, initial_visited_categories=None, initial_located_categories=None):
         """
-        SQLite veritabanına bağlanır ve gerekli tabloyu oluşturur.
+        Menü yapısını tarar ve bir dosyaya kaydeder.
         """
-        self.conn = sqlite3.connect(self.db_path)
-        self.cursor = self.conn.cursor()
-        
-        # Tabloyu oluştur
-        columns = ', '.join([f"hierarchy_{i} TEXT" for i in range(1, 21)])
-        create_table_query = f"""
-        CREATE TABLE IF NOT EXISTS menu (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url TEXT,
-            href TEXT,
-            {columns}
-        );
-        """
-        self.cursor.execute(create_table_query)
-        self.conn.commit()
-        logger.info("SQLite veritabanı ve tablo hazırlandı.")
-
+        scrape_menu(self.driver, locator, is_loaded_locator, is_leaf, wait_time, initial_visited_categories, initial_located_categories)
 
     def open_page(self, url, locator: tuple, definition: str, wait_time=3):
         """Open a URL in the browser and verify if the expected element is visible."""
@@ -203,95 +183,7 @@ class WebScraper:
         logger.info(f"Operation: {definition}")
         logger.info("Quitting the browser")
         self.driver.quit()
-    def scrape_menu(self, locator_list, exit_function, wait_time=5):
-        """
-        Tüm menü çubuğu ve alt menüler taranarak en alt seviyedeki menü elemanlarının bilgilerini SQLite veritabanına kaydeder.
-        
-        :param locator_list: Menü çubuğu elementlerini tanımlayan locator'ların listesi
-        :param exit_function: En alt menü seviyesine ulaşılıp ulaşılmadığını kontrol eden bir fonksiyon
-        :param wait_time: Elementlerin yüklenmesini beklemek için kullanılacak süre
-        """
-        def traverse_menu(current_path, current_level=0):
-            for locator in locator_list:
-                try:
-                    elements = WebDriverWait(self.driver, wait_time).until(
-                        EC.presence_of_all_elements_located(locator)
-                    )
-                    logger.info(f"Found {len(elements)} elements using locator: {locator}")
-                except TimeoutException:
-                    logger.warning(f"No elements found for locator: {locator}")
-                    continue
 
-                for index in range(len(elements)):
-                    try:
-                        # Elementleri yeniden bul
-                        refreshed_elements = WebDriverWait(self.driver, wait_time).until(
-                            EC.presence_of_all_elements_located(locator)
-                        )
-                        if index >= len(refreshed_elements):
-                            logger.warning("Element listesi değişti, atlanıyor.")
-                            continue
-                        element = refreshed_elements[index]
-
-                        # Tıklanabilirliği kontrol et
-                        WebDriverWait(self.driver, wait_time).until(
-                            EC.element_to_be_clickable(locator)
-                        )
-                        element_text = element.text.strip()
-                        logger.info(f"Clicking on '{element_text}' at level {current_level}")
-                        element.click()
-
-                        # Yeni sayfanın yüklenmesini bekle
-                        WebDriverWait(self.driver, wait_time).until(
-                            EC.staleness_of(element)
-                        )
-                        WebDriverWait(self.driver, wait_time).until(
-                            EC.presence_of_all_elements_located(locator_list[0])
-                        )
-
-                        new_url = self.driver.current_url
-                        if new_url in self.visited_urls:
-                            logger.info(f"URL '{new_url}' has already been visited. Skipping.")
-                            self.driver.back()
-                            continue
-                        self.visited_urls.add(new_url)
-
-                        if exit_function(self.driver):
-                            href = self.driver.current_url
-                            # Hierarchy'yi 20 sütuna dağıt
-                            hierarchy_columns = [None] * 20
-                            for i, level in enumerate(current_path + [element_text]):
-                                if i < 20:
-                                    hierarchy_columns[i] = level
-                                else:
-                                    logger.warning(f"Hiyerarşi seviyesi {i+1} aşılmış. Fazladan seviyeler atlanacak.")
-
-                            # Veritabanına ekle
-                            insert_query = f"""
-                            INSERT INTO menu (url, href, {', '.join([f'hierarchy_{i}' for i in range(1, 21)])})
-                            VALUES (?, ?, {', '.join(['?'] * 20)});
-                            """
-                            data = [new_url, href] + hierarchy_columns
-                            self.cursor.execute(insert_query, data)
-                            self.conn.commit()
-                            logger.info(f"Reached end-level menu item: {element_text} with href: {href}")
-                        else:
-                            traverse_menu(current_path + [element_text], current_level + 1)
-
-                        # Geri dön
-                        self.driver.back()
-                        WebDriverWait(self.driver, wait_time).until(
-                            EC.presence_of_all_elements_located(locator_list[0])
-                        )
-                        logger.info("Navigated back to previous menu")
-                    except (TimeoutException, NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException) as e:
-                        logger.error(f"Error processing element '{element_text}' at level {current_level}: {e}. Skipping.")
-                        continue
-                    except Exception as e:
-                        logger.error(f"Unexpected error: {e}. Skipping.")
-                        continue
-
-        traverse_menu(current_path=[])
         
     def close(self):
         """

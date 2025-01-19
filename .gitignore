@@ -2,3 +2,6 @@
 *pycache*
 menu_data.db
 logfile.log
+*.db
+*.txt
+scraping_progress
